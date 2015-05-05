@@ -4,6 +4,8 @@
 
 	include "security_constraints.php";
 
+	include "CFG.php";
+
 	$myfile = fopen($argv[1],"r");
 
 	$parser = new PhpParser\Parser(new PhpParser\Lexer);
@@ -23,23 +25,13 @@
 
 //	$code = $prettyPrinter->prettyPrint($stmts);
 
-//	echo $code."\n";
-
-/*
-	foreach($stmts as $stmt) {
-		       echo "A statement ".$stmt->getType()."\n";
-		       }
-*/
 
 	echo "There are ".count($stmts)." statements.\n"; 	
 
-//	$traverser = new PhpParser\NodeTraverser;
 
-//	$traverser->addVisitor(new ASTVisitor);
+	$cfg = CFG::construct_cfg($stmts);
 
-//	$traverser->traverse($stmts);
-
-	$constraints = generate_security_constraints($stmts);
+	$cfg->print_cfg();
 
 	fclose($myfile);
 ?>

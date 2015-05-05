@@ -1,0 +1,56 @@
+<?php
+
+	require "PHP-Parser-master/lib/bootstrap.php";
+	
+	// Construct the Control Flow Graph (CFG) from a 
+	// sequence of statements.
+
+	function construct_cfg($stmts) {
+	       
+	       $line_constraints = array();
+
+
+	       foreach($stmts as $stmt) {
+	       		      print "The statement has type ".($stmt->getType())."\n";
+			      print "Has values\n";
+			      foreach($stmt as $key => $value) {
+			      			  print "Key=".($key)."\n";
+			       }
+
+
+	        }
+/*
+	       	       construct_cfg_rec($stmt,
+					     $line_constraints,
+					     array());
+*/
+					
+		return $line_constraints;
+	}	
+
+	// Construct the CFG from the root node given
+	// by $stmt.
+	function construct_cfg_rec($stmt,
+						   $line_constraints,
+						   $current_constraints) {
+
+
+		if($stmt instanceof PhpParser\Node\Stmt\If_) {
+			 echo "Found an IF!\n";
+			 echo "The key value pairs are:\n";
+			 foreach($stmt as $key => $value)
+			 	       echo $key."\n";;
+			 
+		}
+		else {
+//			echo "NOT Stmt!\n";
+}
+//			echo "Its type is ".($stmt->getType())."\n";
+				
+
+
+
+   }
+
+
+?>
