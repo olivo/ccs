@@ -57,6 +57,28 @@ class CFG {
 
 
 		  }
+		 // Assignment with operation statement.
+	       	 else if($stmt instanceof PhpParser\Node\Expr\AssignOp) {
+		 	  print "Found assignment with operation statement\n";
+			  $assign_op_node = CFG::processExprAssignOp($stmt);
+			  $current_node->successors[] = $assign_op_node;
+			  $current_node = $assign_op_node;
+			  print "Constructed assignment with operation node\n";
+
+
+
+		  }
+		 // Unset statement.
+	       	 else if($stmt instanceof PhpParser\Node\Stmt\Unset_) {
+		 	  print "Found unset statement\n";
+			  $unset_node = CFG::processStmtUnset($stmt);
+			  $current_node->successors[] = $unset_node;
+			  $current_node = $unset_node;
+			  print "Constructed unset node\n";
+
+
+
+		  }
 		  // If statement.
 		  else if($stmt instanceof PhpParser\Node\Stmt\If_) {
 		          print "Found conditional statement\n";
@@ -156,7 +178,7 @@ class CFG {
 // Constructs a node for an assignment expression.
 static function processExprAssign($exprAssign) {
 
-	// exprAssign has keys 'var' and 'expr'.
+	// $exprAssign has keys 'var' and 'expr'.
 
 	$cfg_node = new CFGNode();
 	$cfg_node->stmt = $exprAssign;
@@ -164,11 +186,35 @@ static function processExprAssign($exprAssign) {
 	return $cfg_node;
 }
 
+// Constructs a node for an assignment with operation expression.
+static function processExprAssignOp($exprAssignOp) {
+
+	// $exprAssign has keys 'var' and 'expr'.
+	// It can be extended by classes Div, Minus, Plus, etc.
+
+	$cfg_node = new CFGNode();
+	$cfg_node->stmt = $exprAssignOp;
+
+	return $cfg_node;
+}
+
+// Constructs a node for an assignment expression.
+static function processStmtUnset($stmtUnset) {
+
+	// $stmtUnset has keys 'vars'.
+
+	$cfg_node = new CFGNode();
+	$cfg_node->stmt = $stmtUnset;
+
+	return $cfg_node;
+}
+
+
 // WARNING: Doesn't handle interprocedural case yet.
 // Constructs a node for a method call expression.
 static function processExprMethodCall($exprMethodCall) {
 
-	// exprMethodCall has keys 'var', 'name' and 'args'.
+	// $exprMethodCall has keys 'var', 'name' and 'args'.
 
 	$cfg_node = new CFGNode();
 	$cfg_node->stmt = $exprMethodCall;
