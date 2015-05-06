@@ -3,6 +3,7 @@
 require "PHP-Parser-master/lib/bootstrap.php";
 require "CFGNode.php";
 require "StmtProcessing.php";
+require "FunctionSignature.php";
 
 // Class representing an entire CFG.
 // It contains an entry CFG node, and an exit CFG node.
@@ -435,6 +436,36 @@ function print_cfg() {
 	
 
 }
+
+
+	// Obtain the function declarations from a list of statements,
+	// and return the mapping from function names to their CFGs
+	// , as well as the mapping from function names to function
+	// signatures.
+	static function process_function_definitions($stmts) {
+	       
+	       // Map from function names to CFG.
+	       $cfgMap = array();
+
+	       // Map from function name to function signature.
+	       $signatureMap = array();
+
+	       foreach($stmts as $stmt) 
+	       		      if($stmt instanceof PhpParser\Node\Stmt\Function_)	{
+			      $signature = new FunctionSignature($stmt->name,$stmt->params,$stmt->returnType);
+
+			      $name = $stmt->name;
+
+			      $cfg = CFG::construct_cfg($stmt->stmts);
+			      $cfgMap[(string)$stmt->name] = $cfg;
+			      $signatureMap[(string)$stmt->name] = $signature;
+	       }
+
+
+	       return array($cfgMap,$signatureMap);
+	       	       
+	 }
+	
 
 }
 
