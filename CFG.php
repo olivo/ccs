@@ -84,6 +84,47 @@ class CFG {
 
 		  
 
+		  // Function call statement.
+		  } else if($stmt instanceof PhpParser\Node\Expr\FuncCall) {
+
+		 	  print "Found function call statement\n";
+			  $function_call_node = CFG::processExprFuncCall($stmt);
+			  $current_node->successors[] = $function_call_node;
+			  $current_node = $function_call_node;
+			  print "Constructed function call node\n";
+
+
+		  
+		  // Static function call statement.
+		  } else if($stmt instanceof PhpParser\Node\Expr\StaticCall) {
+
+		 	  print "Found static call statement\n";
+			  $static_call_node = CFG::processExprStaticCall($stmt);
+			  $current_node->successors[] = $static_call_node;
+			  $current_node = $static_call_node;
+			  print "Constructed static call node\n";
+
+
+		  
+
+		  // Foreach statement.
+		  } else if($stmt instanceof PhpParser\Node\Stmt\Foreach_) {
+
+		 	  print "Found Foreach statement\n";
+			  // Returns a pair with the loop header 
+			  // and a dummy exit node that follows the
+			  // loop.
+			  $foreach_nodes = CFG::processStmtForeach($stmt);
+
+			  // Connect the current node to the loop header.
+			  $current_node->successors[] = $foreach_nodes[0];
+
+			  // Make the dummy exit node of the loop
+			  // the current node.
+			  $current_node = $foreach_nodes[1];
+
+			  print "Constructed Foreach node\n";
+
    }	       		      
 
 		  else {	       		      
@@ -123,6 +164,7 @@ static function processExprAssign($exprAssign) {
 	return $cfg_node;
 }
 
+// WARNING: Doesn't handle interprocedural case yet.
 // Constructs a node for a method call expression.
 static function processExprMethodCall($exprMethodCall) {
 
@@ -134,82 +176,104 @@ static function processExprMethodCall($exprMethodCall) {
 	return $cfg_node;
 }
 
+// WARNING: Doesn't handle interprocedural case yet.
+// Constructs a node for a function call expression.
+static function processExprFuncCall($exprFuncCall) {
+
+	// exprFuncCall has keys 'name' and 'args'.
+
+	$cfg_node = new CFGNode();
+	$cfg_node->stmt = $exprFuncCall;
+
+	return $cfg_node;
+}
+
+// WARNING: Doesn't handle interprocedural case yet.
+// Constructs a node for a static call expression.
+static function processExprStaticCall($exprStaticCall) {
+
+	// exprFuncCall has keys 'class', 'name' and 'args'.
+
+	$cfg_node = new CFGNode();
+	$cfg_node->stmt = $exprStaticCall;
+
+	return $cfg_node;
+}
+
 // Constructs a node for an if statement.
-// It creates a CFG node with the condition, two CFGs for the 
-// true and false branches (if they exist), and a dummy CFG node
-// that represents the "exit" of the conditional.
-// It links the conditional to the CFGs, and the exit of the CFGs
-// to the dummy exit node.
-// It returns the condition node and dummy exit nodes.
+// 1) Creates a node for each condition, and constructs an array  called condition array.
+// 2) Creates a CFG for each conditioned block, and constructs an array called body array.
+// 3) It creates a dummy exit node that all the statement blocks will converge into.
+// 4) Links all the exits of the body CFGs to the exit dummy node.
+// 5) Links each condition node to its corresponding body array.
+// 6) Links each condition node to its next condition node.
+// 7) Links the last condition node to the next body CFG if it exists, or the dummy exit node otherwise.
+// It returns the first condition node and dummy exit nodes.
 
 static function processStmtIf($stmtIf) {
 
 	// stmtIf has keys 'cond', 'stmts', 'elseifs', and 'else'.
 
+	// Array of CFG nodes representing the conditions.
+	$cond_nodes = array();
 
-	// Get the If condition.
-	$cond = $stmtIf->cond;
+	// Array of CFGs representing the bodies of each conditional branch.
+	$body_nodes = array();
 
-	// Create a CFG node with the condition.
+	// Create and add the top condition node.
 	$cond_node = new CFGNode();
-	$cond_node->stmt = $cond;
+	$cond_node->stmt = $stmtIf->cond;
+	$cond_node->is_cond = TRUE;
+	$cond_nodes[] = $cond_node;
+	
+	// Create and add the true branch of the top condition node.
+	$body_node = CFG::construct_cfg($stmtIf->stmts);
+	$body_nodes[] = $body_node;
+
+	// Create and add the condition nodes for the else if clauses.
+	foreach($stmtIf->elseifs as $elseif) {
+
+		$cond_node = new CFGNode();
+		$cond_node->stmt = $elseif->cond;		
+		$cond_node->is_cond = TRUE;
+		$cond_nodes[] = $cond_node;
+
+		$body_node = CFG::construct_cfg($elseif->stmts);
+		$body_nodes[] = $body_node;
+	
+	 }
+
+	 // Create and add the else body node if it exists
+	 if($stmtIf->else) {
+	 	$body_node = CFG::construct_cfg($stmtIf->else->stmts);
+		$body_nodes[] = $body_node;
+	  }
 
 	// Create a dummy exit node from which the branch CFGs point to.
 	$dummy_exit = new CFGNode();
 
-	
-	// Get the statements for the first branch.
-	$if_stmts = $stmtIf->stmts;
+	// Link the exits of all the body nodes to the dummy exit node.
+	foreach($body_nodes as $body_node) 
+			    $body_node->exit->successors[] = $dummy_exit;
 
-	// Construct the CFG for the statements in the true branch.
-	$true_cfg = CFG::construct_cfg($if_stmts);
+	// Link the condition nodes to their corresponding entries of the body nodes.
+	for($i=0;$i<count($cond_nodes);$i++)
+		$cond_nodes[$i]->successors[] = $body_nodes[$i]->entry;
 
-	// Create a pointer from the condition node to the entry of 
-	// the true CFG.
+	// Link each condition node to the next condition node.
+	for($i=0;$i<count($cond_nodes)-1;$i++)
+		$cond_nodes[i]->successors[] = $cond_nodes[i+1];
 
-	$cond_node->successors[] = $true_cfg->entry;
+	//Link the last condition node to the next body node if it exists or the dummy exit node.
+	$last_index = count($cond_nodes)-1;
+	if($last_index+1<count($body_nodes))
+		$cond_nodes[$last_index]->successors[] = $body_nodes[$last_index+1]->entry;
+	else
+		$cond_nodes[$last_index]->successors[] = $dummy_exit;
 
-	
-	// Create a pointer from the exit node of the true CFG
-	// to the exit dummy node.
-	$true_cfg->exit->successors[] = $dummy_exit;
+	// Return the top condition node and the dummy exit node.
+	return array($cond_nodes[0],$dummy_exit);
 
-	if($stmtIf->elseifs) {
-			     print "WARNING: Not soundly processing conditionals with else if clauses!\n";
-	}
-
-
-	if($stmtIf->else) {
-		
-		// If there are statements in an else branch, create
-		// the false CFG from them, create a link from the 
-		// condition node to the entry of the false CFG, and
-		// create a link from the exit of the false CFG to
-		// the dummy exit node.
-
-		$else_branch = $stmtIf->else;
-		$false_cfg = CFG::construct_cfg($else_branch->stmts);
-
-		// Create a pointer from the false CFG exit to the 
-		// dummy node.
-		
-		$false_cfg->exit->successors[] = $dummy_exit;
-
-		// Create a pointer from the condition node to the 
-		// entry of the false branch.
-		$cond_node->successors[] = $false_cfg->entry;		
-
-		
-	 } else {
-	   // The else clause doesn't exist, so add a pointer directly
-	   // from the condition to the dummy exit node.
-	   $cond_node->succesors[] = $dummy_exit;
-	 }
-
-	 
-	 
-	 // Return the conditional node and the dummy node.
-	 return array($cond_node,$dummy_exit);
 }
 
 // Constructs a node for an include expression.
@@ -223,6 +287,48 @@ static function processExprInclude($exprInclude) {
 	return $cfg_node;
 }
 
+
+// Constructs a node for a foreach statement.
+// 1) Creates a CFG node for the loop condition that
+// acts as the loop header.
+// 2) Creates a CFG of the body of the loop.
+// 3) Links the exit of the body CFG to the loop header CFG.
+// 4) Creates an exit dummy node.
+// 5) Links the condition node to the CFG of the body and the dummy
+// exit node.
+static function processStmtForeach($stmtForeach) {
+
+	// $stmtForeach has keys 'expr', 'valueVar' and'stmts', 
+	// and optionally 'subNodes' which contains 'keyVar' and 'byRef'
+
+	// Create the CFG node for the loop header.
+	$header_node = new CFGNode();
+	// The stmt in the header node is the pair ($collection,$var),
+	// where the condition of the foreach is $
+	$header_node->stmt = array($stmtForeach->expr,
+				   $stmtForeach->valueVar);
+
+	$header_node->is_cond = TRUE;
+	$header_node->is_loop_header = TRUE;
+	$header_node->loop_type = CFGNode::FOREACH_LOOP;
+
+	// Create the dummy exit node.
+	$dummy_exit = new CFGNode();
+
+	// Create the CFG for the body of the loop.
+	$body_cfg = CFG::construct_cfg($stmtForeach->stmts);
+
+	// Link the exit of the body CFG to the loop header.
+	$body_cfg->exit->successors[] = $header_node;
+
+	// Link the header node to the entry of the body CFG.
+	$header_node->successors[] = $body_cfg->entry;
+
+	// Link the header node to the dummy exit node.
+	$header_node->successors[] = $dummy_exit;
+
+	return array($header_node,$dummy_exit);
+}
 
 // Prints a CFG starting from the root node.
 // WARNING: Only printing the true branches of the conditionals.
@@ -239,18 +345,45 @@ function print_cfg() {
 
 	 do {
 
-	 	if($current_node->stmt!=NULL) {
+	 	if($current_node->stmt) {
+			if(!$current_node->loop_type) {
 			print "Statement in node.\n";
 			printStmts(array($current_node->stmt));
+			print "With type: ".($current_node->stmt->getType())."\n";
 			print "It has ".(count($current_node->successors)) ." successors.\n";
-		 }			      
+			if($current_node->is_cond)
+				print "It is a CONDITIONAL\n";
+
+		       $current_node = $current_node->successors[0];
+
+    			 }
+			 else {
+			      if($current_node->loop_type==
+				 CFGNode::FOREACH_LOOP) {
+				  	 
+			     	  // If it's a foreach node, print the 
+			      	  // header especially, and continue on the
+			      	  // false branch -- to avoid infinite
+			      	  // loops.
+				  print "It is a foreach\n";
+
+			      	  printStmts(array($current_node->stmt[0],
+					       $current_node->stmt[1]));
+
+			          print "It is a CONDITIONAL\n";
+			       }
+			       else {
+			       	  print "WARNING: Unhandled loop type in print_cfg()\n";
+			       }
+			      $current_node=$current_node->successors[1];     
+
+			 }
+		 }		 	      
 		 else {
 		       print "Skipping null node\n";
+		       $current_node = $current_node->successors[0];
 		 }
 		 
-		$successor_list = $current_node->successors;
-		$current_node=$successor_list[0];
-		
 
 	 } while(count($current_node->successors));
 	
