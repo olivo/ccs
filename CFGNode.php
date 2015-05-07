@@ -5,6 +5,7 @@ class CFGNode {
 // Constant definition for class of loops.
 const FOREACH_LOOP=1;
 const WHILE_LOOP=2;
+const FOR_LOOP=3;
 
 // The statement contained in the node.
 public $stmt = NULL;
@@ -24,6 +25,10 @@ public $is_loop_header=FALSE;
 // When defined, it's a class constant.
 public $loop_type=NULL;
 
+// Boolean that represents whether the successor of the current node 
+// is traversed by a back_edge.
+public $has_backedge = FALSE;
+
 	
 public function __construct() {
 	      	     
@@ -36,6 +41,8 @@ public function __construct() {
 	$this->is_loop_header = FALSE;
 
 	$this->loop_type = NULL;
+
+	$this->has_backedge = FALSE;
  }
 	
  }

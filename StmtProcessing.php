@@ -2,7 +2,7 @@
 
 // Helper functions for handling Stmts for PHP-Parser.
 
-require "PHP-Parser-master/lib/bootstrap.php";
+include_once "PHP-Parser-master/lib/bootstrap.php";
 
 // Gets the string representation of the LHS variable
 // in an assignment.
